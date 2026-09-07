@@ -18,7 +18,7 @@ if ([System.Threading.Thread]::CurrentThread.GetApartmentState() -ne [System.Thr
     $resolvedPath = if ($rawPath -and (Test-Path -LiteralPath $rawPath)) { (Resolve-Path -LiteralPath $rawPath).Path } else { (Join-Path (Get-Location).Path "ZeroExplore.ps1") }
     $workingDir = if (Test-Path -LiteralPath $resolvedPath) { Split-Path -Parent $resolvedPath } else { (Get-Location).Path }
     Start-Process -FilePath "powershell.exe" -WorkingDirectory $workingDir -ArgumentList "-NoProfile -ExecutionPolicy Bypass -STA -File `"$resolvedPath`""
-    exit
+    return
 }
 
 Add-Type -AssemblyName PresentationFramework, PresentationCore, WindowsBase, System.Xaml, System.Drawing, System.Windows.Forms
@@ -5019,7 +5019,7 @@ function Add-WorkspaceTab([string]$targetPath = $null, [bool]$switchTo = $true) 
             Update-HyprlandTilingLayout
         }
     }
-    return $tab
+    return
 }
 
 function Switch-WorkspaceTab([string]$tabId) {
@@ -8125,7 +8125,7 @@ if ($BtnToggleHyprlandTiling) {
 }
 
 Update-ExplorerDriveButtons
-Add-WorkspaceTab $Script:ExplorerCurrentPath $true
+[void](Add-WorkspaceTab $Script:ExplorerCurrentPath $true)
 
 # Auto-check for updates on launch
 $Window.Add_Loaded({

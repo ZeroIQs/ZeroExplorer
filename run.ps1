@@ -68,11 +68,7 @@ if (-not $scriptText -and (Test-Path $localScript)) {
 if ($scriptText) {
     try { Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass -Force -ErrorAction SilentlyContinue } catch {}
     if (Test-Path $localScript) {
-        try {
-            & "$localScript"
-        } catch {
-            Invoke-Expression $scriptText
-        }
+        & "$localScript"
     } else {
         Invoke-Expression $scriptText
     }
