@@ -2294,6 +2294,40 @@ function Open-SafeBrowserUrl([string]$url) {
           <!-- Sidebar Footer: ZeroHub Info, Website & Donate Links -->
           <Border Grid.Row="1" Background="#060608" BorderBrush="#181820" BorderThickness="0,1,0,0" Padding="8,8">
             <StackPanel>
+              <!-- Sidebar Live GitHub Update Button (Always Visible like ZeroHub) -->
+              <Border Name="BorderSidebarUpdate" Background="#111114" BorderBrush="#23232A" BorderThickness="1" CornerRadius="6" Margin="0,0,0,6">
+                <Button Name="BtnSidebarUpdate" Background="Transparent" BorderThickness="0" Padding="8,6" Cursor="Hand" ToolTip="Check for the latest ZeroExplorer releases on GitHub">
+                  <Button.Style>
+                    <Style TargetType="Button">
+                      <Setter Property="Template">
+                        <Setter.Value>
+                          <ControlTemplate TargetType="Button">
+                            <Border Name="InnerBtnBorder" Background="{TemplateBinding Background}" CornerRadius="5" Padding="{TemplateBinding Padding}">
+                              <ContentPresenter HorizontalAlignment="Stretch" VerticalAlignment="Center" />
+                            </Border>
+                            <ControlTemplate.Triggers>
+                              <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="InnerBtnBorder" Property="Background" Value="#18181C" />
+                              </Trigger>
+                            </ControlTemplate.Triggers>
+                          </ControlTemplate>
+                        </Setter.Value>
+                      </Setter>
+                    </Style>
+                  </Button.Style>
+                  <Grid>
+                    <Grid.ColumnDefinitions>
+                      <ColumnDefinition Width="Auto" />
+                      <ColumnDefinition Width="*" />
+                      <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Name="IconSidebarUpdate" Grid.Column="0" Text="&#xE72C;" FontFamily="Segoe MDL2 Assets" FontSize="11" Foreground="#c15f3c" VerticalAlignment="Center" Margin="0,0,6,0" />
+                    <TextBlock Name="TxtSidebarUpdate" Grid.Column="1" Text="Check for Updates" FontWeight="SemiBold" FontSize="10.5" Foreground="#F5EDE0" VerticalAlignment="Center" />
+                    <TextBlock Name="BadgeSidebarUpdateArrow" Grid.Column="2" Text="&#xE76C;" FontFamily="Segoe MDL2 Assets" FontSize="9" FontWeight="Bold" Foreground="#A1A1AA" VerticalAlignment="Center" Margin="4,0,0,0" />
+                  </Grid>
+                </Button>
+              </Border>
+
               <!-- Links: Website & Donate -->
               <Grid>
                 <Grid.ColumnDefinitions>
@@ -3644,6 +3678,11 @@ $Nav_About              = $Window.FindName("Nav_About")
 $Border_Nav_About       = $Window.FindName("Border_Nav_About")
 $BtnSidebarWebsite      = $Window.FindName("BtnSidebarWebsite")
 $BtnSidebarDonate       = $Window.FindName("BtnSidebarDonate")
+$BorderSidebarUpdate     = $Window.FindName("BorderSidebarUpdate")
+$BtnSidebarUpdate        = $Window.FindName("BtnSidebarUpdate")
+$IconSidebarUpdate       = $Window.FindName("IconSidebarUpdate")
+$TxtSidebarUpdate        = $Window.FindName("TxtSidebarUpdate")
+$BadgeSidebarUpdateArrow = $Window.FindName("BadgeSidebarUpdateArrow")
 
 # Context Menu Items (Native Windows Options - Dark Obsidian)
 $ExplorerContextMenu    = $Window.FindName("ExplorerContextMenu")
@@ -3946,8 +3985,72 @@ if ($BtnProjectZeroHub)    { $BtnProjectZeroHub.add_Click({ Open-SafeBrowserUrl 
 if ($BtnProjectExPDF)      { $BtnProjectExPDF.add_Click({ Open-SafeBrowserUrl "https://expdf.space/" }) }
 if ($BtnProjectWallpapers) { $BtnProjectWallpapers.add_Click({ Open-SafeBrowserUrl "https://zeroiqs.github.io/ZeroIQ-Wallpapers/" }) }
 
+function Set-SidebarUpdateButtonVisuals([string]$mode, [string]$tag = "") {
+    if (-not $BorderSidebarUpdate -or -not $TxtSidebarUpdate) { return }
+
+    $brushConv = [System.Windows.Media.BrushConverter]::new()
+
+    if ($mode -eq "UPDATE_AVAILABLE") {
+        # Vibrant Crimson Red Styling for Available Update
+        $BorderSidebarUpdate.Background  = $brushConv.ConvertFromString("#E11D48")
+        $BorderSidebarUpdate.BorderBrush = $brushConv.ConvertFromString("#FB7185")
+        if ($IconSidebarUpdate) {
+            $IconSidebarUpdate.Text       = [char]0xE896 # Download glyph
+            $IconSidebarUpdate.Foreground = [System.Windows.Media.Brushes]::White
+        }
+        $TxtSidebarUpdate.Text       = "Update $tag Available!"
+        $TxtSidebarUpdate.Foreground = [System.Windows.Media.Brushes]::White
+        if ($BadgeSidebarUpdateArrow) {
+            $BadgeSidebarUpdateArrow.Foreground = [System.Windows.Media.Brushes]::White
+        }
+    }
+    elseif ($mode -eq "UP_TO_DATE") {
+        # Green Checkmark state: User has the latest version
+        $BorderSidebarUpdate.Background  = $brushConv.ConvertFromString("#064E3B")
+        $BorderSidebarUpdate.BorderBrush = $brushConv.ConvertFromString("#059669")
+        if ($IconSidebarUpdate) {
+            $IconSidebarUpdate.Text       = [char]0xE73E # Checkmark glyph
+            $IconSidebarUpdate.Foreground = $brushConv.ConvertFromString("#4ADE80")
+        }
+        $TxtSidebarUpdate.Text       = "Latest Version (v$($Script:CurrentAppVersion))"
+        $TxtSidebarUpdate.Foreground = $brushConv.ConvertFromString("#4ADE80")
+        if ($BadgeSidebarUpdateArrow) {
+            $BadgeSidebarUpdateArrow.Foreground = $brushConv.ConvertFromString("#4ADE80")
+        }
+    }
+    elseif ($mode -eq "CHECKING") {
+        # Checking state
+        $BorderSidebarUpdate.Background  = $brushConv.ConvertFromString("#111827")
+        $BorderSidebarUpdate.BorderBrush = $brushConv.ConvertFromString("#0284C7")
+        if ($IconSidebarUpdate) {
+            $IconSidebarUpdate.Text       = [char]0xE72C # Sync glyph
+            $IconSidebarUpdate.Foreground = $brushConv.ConvertFromString("#D4D4D8")
+        }
+        $TxtSidebarUpdate.Text       = "Checking..."
+        $TxtSidebarUpdate.Foreground = $brushConv.ConvertFromString("#D4D4D8")
+        if ($BadgeSidebarUpdateArrow) {
+            $BadgeSidebarUpdateArrow.Foreground = $brushConv.ConvertFromString("#D4D4D8")
+        }
+    }
+    else {
+        # Normal Idle State
+        $BorderSidebarUpdate.Background  = $brushConv.ConvertFromString("#111114")
+        $BorderSidebarUpdate.BorderBrush = $brushConv.ConvertFromString("#23232A")
+        if ($IconSidebarUpdate) {
+            $IconSidebarUpdate.Text       = [char]0xE72C # Sync glyph
+            $IconSidebarUpdate.Foreground = $brushConv.ConvertFromString("#c15f3c")
+        }
+        $TxtSidebarUpdate.Text       = "Check for Updates"
+        $TxtSidebarUpdate.Foreground = [System.Windows.Media.BrushConverter]::new().ConvertFromString("#F5EDE0")
+        if ($BadgeSidebarUpdateArrow) {
+            $BadgeSidebarUpdateArrow.Foreground = $brushConv.ConvertFromString("#A1A1AA")
+        }
+    }
+}
+
 function Check-ZeroExplorerUpdateAsync([bool]$isManual = $false) {
     $Script:IsManualUpdateCheck = $isManual
+    Set-SidebarUpdateButtonVisuals "CHECKING"
     if ($isManual) {
         if ($BtnManualCheckUpdates) {
             $BtnManualCheckUpdates.IsEnabled = $false
@@ -3975,6 +4078,7 @@ function Check-ZeroExplorerUpdateAsync([bool]$isManual = $false) {
                 $BtnManualCheckUpdates.Content = "Check for Updates"
             }
         }
+        Set-SidebarUpdateButtonVisuals "NORMAL"
         return
     }
 
@@ -4003,6 +4107,7 @@ function Check-ZeroExplorerUpdateAsync([bool]$isManual = $false) {
                         if ($BtnManualCheckUpdates) {
                             $BtnManualCheckUpdates.Content = "[OK] Latest Version"
                         }
+                        Set-SidebarUpdateButtonVisuals "UP_TO_DATE"
                         return
                     }
 
@@ -4020,6 +4125,8 @@ function Check-ZeroExplorerUpdateAsync([bool]$isManual = $false) {
                             $Script:HasAvailableUpdate = $true
                             $Script:LatestUpdateTag    = $cleanTag
 
+                            Set-SidebarUpdateButtonVisuals "UPDATE_AVAILABLE" "v$cleanTag"
+
                             if ($TxtAppUpdateStatus) {
                                 $TxtAppUpdateStatus.Text = "New release available on GitHub: v$cleanTag"
                                 $TxtAppUpdateStatus.Foreground = [System.Windows.Media.BrushConverter]::new().ConvertFromString("#c15f3c")
@@ -4033,6 +4140,7 @@ function Check-ZeroExplorerUpdateAsync([bool]$isManual = $false) {
                             }
                         } else {
                             $Script:HasAvailableUpdate = $false
+                            Set-SidebarUpdateButtonVisuals "UP_TO_DATE"
                             if ($TxtAppUpdateStatus) {
                                 $TxtAppUpdateStatus.Text = "You are using the latest version (v$($Script:CurrentAppVersion))"
                                 $TxtAppUpdateStatus.Foreground = [System.Windows.Media.BrushConverter]::new().ConvertFromString("#4ADE80")
@@ -4044,6 +4152,8 @@ function Check-ZeroExplorerUpdateAsync([bool]$isManual = $false) {
                                 $BtnManualCheckUpdates.Content = "[OK] Latest Version"
                             }
                         }
+                    } else {
+                        Set-SidebarUpdateButtonVisuals "UP_TO_DATE"
                     }
                 } finally {
                     if ($BtnManualCheckUpdates) {
@@ -4056,6 +4166,7 @@ function Check-ZeroExplorerUpdateAsync([bool]$isManual = $false) {
 
         $Script:UpdateWebClient.DownloadStringAsync([Uri]::new($rawUrl))
     } catch {
+        Set-SidebarUpdateButtonVisuals "NORMAL"
         if ($BtnManualCheckUpdates) {
             $BtnManualCheckUpdates.IsEnabled = $true
             $BtnManualCheckUpdates.Content = "Check for Updates"
@@ -4127,6 +4238,16 @@ if ($BtnManualCheckUpdates) {
 }
 if ($BtnAppUpdateTab) {
     $BtnAppUpdateTab.add_Click({ Invoke-PerformZeroExplorerSelfUpdate })
+}
+if ($BtnSidebarUpdate) {
+    $BtnSidebarUpdate.add_Click({
+        Show-AboutView
+        if ($Script:HasAvailableUpdate) {
+            Invoke-PerformZeroExplorerSelfUpdate
+        } else {
+            Check-ZeroExplorerUpdateAsync $true
+        }
+    })
 }
 
 # ==============================================================================
