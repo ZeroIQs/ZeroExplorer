@@ -22,15 +22,22 @@
 
 ---
 
-## 🚀 Quick Launch (1-Line Command)
+## 🚀 Quick Launch & In-App Updates
 
-Open **PowerShell as Administrator** and run:
+### 🖱️ 1-Click Launch (Recommended)
+Simply double-click **`ZeroExplore.bat`** or **`ZeroExplore.vbs`** in the folder to launch ZeroExplorer silently with zero console windows.
 
+### 💻 Launch via PowerShell
+Open PowerShell in the folder and run:
 ```powershell
-irm https://raw.githubusercontent.com/ZeroIQs/ZeroExplorer/main/run.ps1 | iex
+.\ZeroExplore.ps1
 ```
 
-*Or simply double-click **`ZeroExplore.bat`** or **`ZeroExplore.vbs`** in the repository.*
+### 🔄 Built-in In-App Updates (1-Click)
+ZeroExplorer includes an **integrated in-place auto-updater**:
+- Whenever a new release is pushed to GitHub, ZeroExplorer automatically detects it in the background.
+- The sidebar update button turns **vibrant crimson red** (`Update vX.X.X Available!`).
+- Click **"Install Update"** to download, overwrite, and restart on the new version automatically — without needing any terminal commands or re-cloning!
 
 ---
 
