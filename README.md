@@ -22,19 +22,35 @@
 
 ---
 
-## 🚀 Quick Launch
+## 🚀 Quick Launch (1-Line Command)
 
-### Option 1: Double-Click Launcher (Recommended)
-Simply double-click **`ZeroExplore.bat`** or **`ZeroExplore.vbs`** in the folder to launch silently with zero console flashes.
+Open **PowerShell as Administrator** and run:
 
-### Option 2: Run via PowerShell
-Open PowerShell in the directory and run:
 ```powershell
-.\ZeroExplore.ps1
+irm https://raw.githubusercontent.com/ZeroIQs/ZeroExplorer/main/run.ps1 | iex
 ```
 
-### Option 3: Pin to Desktop
-Click the **"Add to Desktop"** button inside the ZeroExplorer sidebar or About menu to instantly create a desktop shortcut with full icon support.
+*Or simply double-click **`ZeroExplore.bat`** or **`ZeroExplore.vbs`** in the repository.*
+
+---
+
+## 📸 Screenshots
+
+<p align="center">
+  <img src="assets/screenshot_dashboard.png" alt="ZeroExplorer Main Dashboard & Storage Inspector" width="100%">
+</p>
+
+<p align="center">
+  <img src="assets/screenshot_video_player.png" alt="ZeroExplorer Live Video & Audio Player" width="100%">
+</p>
+
+<p align="center">
+  <img src="assets/screenshot_code_preview.png" alt="ZeroExplorer Syntax Highlighted Code Previewer" width="100%">
+</p>
+
+<p align="center">
+  <img src="assets/screenshot_image_preview.png" alt="ZeroExplorer Rich Image Inspection & Metadata Pane" width="100%">
+</p>
 
 ---
 

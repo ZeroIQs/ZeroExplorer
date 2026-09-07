@@ -1298,6 +1298,12 @@ $Script:AssetsDir = if (Test-Path (Join-Path $Script:AppDir "assets")) {
 }
 
 # Global State
+$Script:CurrentAppVersion       = "1.0.0"
+$Script:GitHubRepo              = "ZeroIQs/ZeroExplorer"
+$Script:RunningScriptPath       = if ($PSCommandPath) { $PSCommandPath } elseif ($PSScriptRoot) { Join-Path $PSScriptRoot "ZeroExplore.ps1" } else { (Join-Path (Get-Location).Path "ZeroExplore.ps1") }
+$Script:HasAvailableUpdate      = $false
+$Script:LatestUpdateTag         = $null
+$Script:IsManualUpdateCheck     = $false
 $Script:DefaultDrive            = if ($env:SystemDrive -and (Test-Path "$($env:SystemDrive)\")) { "$($env:SystemDrive)\" } else { [System.IO.Directory]::GetLogicalDrives()[0] }
 $Script:ExplorerCurrentPath     = $Script:DefaultDrive
 $Script:CurrentViewMode         = "Details" # "Details", "MediumIcons", "LargeIcons"
@@ -3270,6 +3276,39 @@ function Open-SafeBrowserUrl([string]$url) {
               </Grid>
             </Border>
 
+            <!-- UPDATE & VERSION CONTROL CARD -->
+            <Border Background="#141418" BorderBrush="#23232A" BorderThickness="1" CornerRadius="8" Padding="18,14" Margin="0,0,0,16">
+              <Grid>
+                <Grid.ColumnDefinitions>
+                  <ColumnDefinition Width="Auto" />
+                  <ColumnDefinition Width="*" />
+                  <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                
+                <Border Grid.Column="0" Background="#1C1814" BorderBrush="#3A2818" BorderThickness="1" CornerRadius="6" Width="36" Height="36" Margin="0,0,14,0" VerticalAlignment="Center">
+                  <TextBlock Text="&#xE895;" FontFamily="Segoe MDL2 Assets" FontSize="16" Foreground="#c15f3c" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                </Border>
+
+                <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                  <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,0,3">
+                    <TextBlock Text="ZeroExplorer Auto-Updater" FontSize="13" FontWeight="Bold" Foreground="#F5EDE0" Margin="0,0,8,0" />
+                    <Border Background="#14261B" BorderBrush="#235E35" BorderThickness="1" CornerRadius="4" Padding="6,1.5">
+                      <TextBlock Text="v1.0.0 Production" FontSize="9.5" FontWeight="Bold" Foreground="#4ADE80" />
+                    </Border>
+                  </StackPanel>
+                  <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                    <TextBlock Text="Status: " FontSize="11" Foreground="#71717A" />
+                    <TextBlock Name="TxtAppUpdateStatus" Text="Connected to GitHub (ZeroIQs/ZeroExplorer)" FontSize="11" FontWeight="SemiBold" Foreground="#4ADE80" />
+                  </StackPanel>
+                </StackPanel>
+
+                <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center" HorizontalAlignment="Right" Margin="12,0,0,0">
+                  <Button Name="BtnManualCheckUpdates" Style="{StaticResource b2}" Background="#18181C" Foreground="#D4D4D8" Content="Check for Updates" Height="28" Padding="12,0" FontSize="10.5" FontWeight="SemiBold" Cursor="Hand" ToolTip="Check GitHub repository for the latest release" Margin="0,0,8,0" />
+                  <Button Name="BtnAppUpdateTab" Style="{StaticResource b2}" Background="#c15f3c" Foreground="#FFFFFF" Content="Install Update" Height="28" Padding="14,0" FontSize="10.5" FontWeight="Bold" Cursor="Hand" Visibility="Collapsed" />
+                </StackPanel>
+              </Grid>
+            </Border>
+
             <!-- What This App Does (Features & Architecture Grid) -->
             <TextBlock Text="WHAT ZEROEXPLORE DOES" FontSize="9.5" FontWeight="Bold" Foreground="#c15f3c" Margin="2,0,0,8" />
             <UniformGrid Columns="3" Margin="0,0,0,14">
@@ -3662,6 +3701,9 @@ $BtnProjectZeroHub      = $Window.FindName("BtnProjectZeroHub")
 $BtnProjectExPDF        = $Window.FindName("BtnProjectExPDF")
 $BtnProjectWallpapers   = $Window.FindName("BtnProjectWallpapers")
 $BtnAboutGithub         = $Window.FindName("BtnAboutGithub")
+$TxtAppUpdateStatus     = $Window.FindName("TxtAppUpdateStatus")
+$BtnManualCheckUpdates  = $Window.FindName("BtnManualCheckUpdates")
+$BtnAppUpdateTab        = $Window.FindName("BtnAppUpdateTab")
 $TxtAboutMachine        = $Window.FindName("TxtAboutMachine")
 $TxtAboutOS             = $Window.FindName("TxtAboutOS")
 $TxtAboutOSVersion      = $Window.FindName("TxtAboutOSVersion")
@@ -3903,6 +3945,189 @@ if ($BtnAboutDonate)    { $BtnAboutDonate.add_Click($OpenDonate) }
 if ($BtnProjectZeroHub)    { $BtnProjectZeroHub.add_Click({ Open-SafeBrowserUrl "https://github.com/ZeroIQs/Zerohub" }) }
 if ($BtnProjectExPDF)      { $BtnProjectExPDF.add_Click({ Open-SafeBrowserUrl "https://expdf.space/" }) }
 if ($BtnProjectWallpapers) { $BtnProjectWallpapers.add_Click({ Open-SafeBrowserUrl "https://zeroiqs.github.io/ZeroIQ-Wallpapers/" }) }
+
+function Check-ZeroExplorerUpdateAsync([bool]$isManual = $false) {
+    $Script:IsManualUpdateCheck = $isManual
+    if ($isManual) {
+        if ($BtnManualCheckUpdates) {
+            $BtnManualCheckUpdates.IsEnabled = $false
+            $BtnManualCheckUpdates.Content = "[...] Checking..."
+        }
+        if ($TxtAppUpdateStatus) {
+            $TxtAppUpdateStatus.Text = "Checking for new releases on GitHub..."
+            $TxtAppUpdateStatus.Foreground = [System.Windows.Media.BrushConverter]::new().ConvertFromString("#D4D4D8")
+        }
+    }
+
+    $isOnline = $false
+    try {
+        $isOnline = [System.Net.NetworkInformation.NetworkInterface]::GetIsNetworkAvailable()
+    } catch {}
+
+    if (-not $isOnline) {
+        if ($Script:IsManualUpdateCheck) {
+            if ($TxtAppUpdateStatus) {
+                $TxtAppUpdateStatus.Text = "Offline Mode (No Internet Connection)"
+                $TxtAppUpdateStatus.Foreground = [System.Windows.Media.BrushConverter]::new().ConvertFromString("#94A3B8")
+            }
+            if ($BtnManualCheckUpdates) {
+                $BtnManualCheckUpdates.IsEnabled = $true
+                $BtnManualCheckUpdates.Content = "Check for Updates"
+            }
+        }
+        return
+    }
+
+    try {
+        [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.SecurityProtocolType]::Tls12 -bor [System.Net.SecurityProtocolType]::Tls11 -bor [System.Net.SecurityProtocolType]::Tls
+        $ts = [DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds()
+        $rawUrl = "https://raw.githubusercontent.com/$($Script:GitHubRepo)/main/ZeroExplore.ps1?nocache=$ts"
+
+        $Script:UpdateWebClient = New-Object System.Net.WebClient
+        $Script:UpdateWebClient.Headers.Add("User-Agent", "ZeroExplorer-UpdateChecker")
+        $Script:UpdateWebClient.Headers.Add("Cache-Control", "no-cache, no-store, must-revalidate")
+
+        $Script:UpdateWebClient.add_DownloadStringCompleted({
+            param($srcClient, $e)
+            if (-not $Window) { return }
+
+            $Window.Dispatcher.Invoke([Action]{
+                $wasManual = $Script:IsManualUpdateCheck
+                try {
+                    $hasErr = $e.Error -or [string]::IsNullOrWhiteSpace($e.Result)
+                    if ($hasErr) {
+                        if ($TxtAppUpdateStatus) {
+                            $TxtAppUpdateStatus.Text = "You are using the latest version (v$($Script:CurrentAppVersion))"
+                            $TxtAppUpdateStatus.Foreground = [System.Windows.Media.BrushConverter]::new().ConvertFromString("#4ADE80")
+                        }
+                        if ($BtnManualCheckUpdates) {
+                            $BtnManualCheckUpdates.Content = "[OK] Latest Version"
+                        }
+                        return
+                    }
+
+                    $rawText = $e.Result
+                    $cleanTag = $null
+                    if ($rawText -match '\$Script:CurrentAppVersion\s*=\s*["'']([^"'']+)["'']') {
+                        $cleanTag = $Matches[1].Trim().TrimStart('v', 'V')
+                    }
+
+                    if (-not [string]::IsNullOrWhiteSpace($cleanTag)) {
+                        $curVer = [System.Version]::Parse($Script:CurrentAppVersion)
+                        $latVer = [System.Version]::Parse($cleanTag)
+
+                        if ($latVer -gt $curVer) {
+                            $Script:HasAvailableUpdate = $true
+                            $Script:LatestUpdateTag    = $cleanTag
+
+                            if ($TxtAppUpdateStatus) {
+                                $TxtAppUpdateStatus.Text = "New release available on GitHub: v$cleanTag"
+                                $TxtAppUpdateStatus.Foreground = [System.Windows.Media.BrushConverter]::new().ConvertFromString("#c15f3c")
+                            }
+                            if ($BtnAppUpdateTab) {
+                                $BtnAppUpdateTab.Visibility = [System.Windows.Visibility]::Visible
+                                $BtnAppUpdateTab.Content = "[>>] Install v$cleanTag"
+                            }
+                            if ($BtnManualCheckUpdates) {
+                                $BtnManualCheckUpdates.Content = "Re-check GitHub"
+                            }
+                        } else {
+                            $Script:HasAvailableUpdate = $false
+                            if ($TxtAppUpdateStatus) {
+                                $TxtAppUpdateStatus.Text = "You are using the latest version (v$($Script:CurrentAppVersion))"
+                                $TxtAppUpdateStatus.Foreground = [System.Windows.Media.BrushConverter]::new().ConvertFromString("#4ADE80")
+                            }
+                            if ($BtnAppUpdateTab) {
+                                $BtnAppUpdateTab.Visibility = [System.Windows.Visibility]::Collapsed
+                            }
+                            if ($BtnManualCheckUpdates) {
+                                $BtnManualCheckUpdates.Content = "[OK] Latest Version"
+                            }
+                        }
+                    }
+                } finally {
+                    if ($BtnManualCheckUpdates) {
+                        $BtnManualCheckUpdates.IsEnabled = $true
+                    }
+                    try { $srcClient.Dispose() } catch {}
+                }
+            })
+        })
+
+        $Script:UpdateWebClient.DownloadStringAsync([Uri]::new($rawUrl))
+    } catch {
+        if ($BtnManualCheckUpdates) {
+            $BtnManualCheckUpdates.IsEnabled = $true
+            $BtnManualCheckUpdates.Content = "Check for Updates"
+        }
+    }
+}
+
+function Invoke-PerformZeroExplorerSelfUpdate {
+    if (-not $Script:HasAvailableUpdate) {
+        Check-ZeroExplorerUpdateAsync $true
+        return
+    }
+
+    $confirmMsg = "Download and install ZeroExplorer (v$($Script:LatestUpdateTag)) from GitHub now? The application will update in-place and automatically restart."
+    $res = [System.Windows.MessageBox]::Show($confirmMsg, "ZeroExplorer Auto-Updater", [System.Windows.MessageBoxButton]::YesNo, [System.Windows.MessageBoxImage]::Question)
+    if ($res -eq [System.Windows.MessageBoxResult]::Yes) {
+        try {
+            $targetPs1 = $Script:RunningScriptPath
+            if (-not $targetPs1 -or -not (Test-Path $targetPs1)) {
+                if ($PSCommandPath -and (Test-Path $PSCommandPath)) {
+                    $targetPs1 = $PSCommandPath
+                } elseif ($PSScriptRoot -and (Test-Path (Join-Path $PSScriptRoot "ZeroExplore.ps1"))) {
+                    $targetPs1 = Join-Path $PSScriptRoot "ZeroExplore.ps1"
+                } elseif (Test-Path (Join-Path (Get-Location).Path "ZeroExplore.ps1")) {
+                    $targetPs1 = Join-Path (Get-Location).Path "ZeroExplore.ps1"
+                } else {
+                    $targetPs1 = Join-Path $env:LOCALAPPDATA "ZeroExplorer\ZeroExplore.ps1"
+                }
+            }
+
+            $targetDir = Split-Path -Path $targetPs1 -Parent
+
+            $ts = [DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds()
+            $tempPs1 = Join-Path $env:TEMP "ZeroExplorer_Update_$ts.ps1"
+
+            [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.SecurityProtocolType]::Tls12 -bor [System.Net.SecurityProtocolType]::Tls11 -bor [System.Net.SecurityProtocolType]::Tls
+            $wc = New-Object System.Net.WebClient
+            $wc.Headers.Add("User-Agent", "ZeroExplorer-AutoUpdater")
+            $wc.DownloadFile("https://raw.githubusercontent.com/$($Script:GitHubRepo)/main/ZeroExplore.ps1?nocache=$ts", $tempPs1)
+
+            if ((Test-Path $tempPs1) -and ((Get-Item $tempPs1).Length -gt 50000)) {
+                Copy-Item -Path $tempPs1 -Destination $targetPs1 -Force
+
+                # Also synchronize %LOCALAPPDATA%\ZeroExplorer cache if it exists
+                $appDataDir = Join-Path $env:LOCALAPPDATA "ZeroExplorer"
+                if (Test-Path $appDataDir) {
+                    try {
+                        Copy-Item -Path $tempPs1 -Destination (Join-Path $appDataDir "ZeroExplore.ps1") -Force
+                    } catch {}
+                }
+
+                try { Remove-Item $tempPs1 -Force -ErrorAction SilentlyContinue } catch {}
+
+                # Seamlessly relaunch the updated ZeroExplorer instance
+                $launchArgs = "-NoProfile -ExecutionPolicy Bypass -STA -File `"$targetPs1`""
+                Start-Process "powershell.exe" -ArgumentList $launchArgs -WorkingDirectory $targetDir
+                $Window.Close()
+            } else {
+                throw "Downloaded update file was incomplete. Please check your internet connection."
+            }
+        } catch {
+            [System.Windows.MessageBox]::Show("Update failed: $($_.Exception.Message)", "ZeroExplorer Update Error", [System.Windows.MessageBoxButton]::OK, [System.Windows.MessageBoxImage]::Error)
+        }
+    }
+}
+
+if ($BtnManualCheckUpdates) {
+    $BtnManualCheckUpdates.add_Click({ Check-ZeroExplorerUpdateAsync $true })
+}
+if ($BtnAppUpdateTab) {
+    $BtnAppUpdateTab.add_Click({ Invoke-PerformZeroExplorerSelfUpdate })
+}
 
 # ==============================================================================
 # QUICK PIN ACTIONS & WINDOW CONTROLS
@@ -7780,6 +8005,11 @@ if ($BtnToggleHyprlandTiling) {
 
 Update-ExplorerDriveButtons
 Add-WorkspaceTab $Script:ExplorerCurrentPath $true
+
+# Auto-check for updates on launch
+$Window.Add_Loaded({
+    Check-ZeroExplorerUpdateAsync $false
+})
 
 # Show Window
 [void]$Window.ShowDialog()

@@ -9,3 +9,8 @@ $RECYCLE.BIN/
 
 # Logs and temporary files
 *.log
+
+# Sub-repositories
+Zerohub/
+Zerohub
+
