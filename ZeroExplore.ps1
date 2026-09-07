@@ -3310,37 +3310,18 @@ function Open-SafeBrowserUrl([string]$url) {
               </Grid>
             </Border>
 
-            <!-- UPDATE & VERSION CONTROL CARD -->
-            <Border Background="#141418" BorderBrush="#23232A" BorderThickness="1" CornerRadius="8" Padding="18,14" Margin="0,0,0,16">
-              <Grid>
-                <Grid.ColumnDefinitions>
-                  <ColumnDefinition Width="Auto" />
-                  <ColumnDefinition Width="*" />
-                  <ColumnDefinition Width="Auto" />
-                </Grid.ColumnDefinitions>
-                
-                <Border Grid.Column="0" Background="#1C1814" BorderBrush="#3A2818" BorderThickness="1" CornerRadius="6" Width="36" Height="36" Margin="0,0,14,0" VerticalAlignment="Center">
-                  <TextBlock Text="&#xE895;" FontFamily="Segoe MDL2 Assets" FontSize="16" Foreground="#c15f3c" HorizontalAlignment="Center" VerticalAlignment="Center" />
-                </Border>
-
-                <StackPanel Grid.Column="1" VerticalAlignment="Center">
-                  <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,0,3">
-                    <TextBlock Text="ZeroExplorer Auto-Updater" FontSize="13" FontWeight="Bold" Foreground="#F5EDE0" Margin="0,0,8,0" />
-                    <Border Background="#14261B" BorderBrush="#235E35" BorderThickness="1" CornerRadius="4" Padding="6,1.5">
-                      <TextBlock Text="v1.0.0 Production" FontSize="9.5" FontWeight="Bold" Foreground="#4ADE80" />
-                    </Border>
-                  </StackPanel>
-                  <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                    <TextBlock Text="Status: " FontSize="11" Foreground="#71717A" />
-                    <TextBlock Name="TxtAppUpdateStatus" Text="Connected to GitHub (ZeroIQs/ZeroExplorer)" FontSize="11" FontWeight="SemiBold" Foreground="#4ADE80" />
-                  </StackPanel>
+            <!-- Minimal Update Row -->
+            <Border Background="#111114" BorderBrush="#202026" BorderThickness="1" CornerRadius="6" Padding="12,7" Margin="0,0,0,14">
+              <DockPanel LastChildFill="False">
+                <StackPanel Orientation="Horizontal" DockPanel.Dock="Left" VerticalAlignment="Center">
+                  <TextBlock Text="&#xE72C;" FontFamily="Segoe MDL2 Assets" FontSize="11" Foreground="#c15f3c" Margin="0,0,7,0" VerticalAlignment="Center" />
+                  <TextBlock Name="TxtAppUpdateStatus" Text="Up to date (v1.0.0)" FontSize="11" FontWeight="SemiBold" Foreground="#4ADE80" VerticalAlignment="Center" />
                 </StackPanel>
-
-                <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center" HorizontalAlignment="Right" Margin="12,0,0,0">
-                  <Button Name="BtnManualCheckUpdates" Style="{StaticResource b2}" Background="#18181C" Foreground="#D4D4D8" Content="Check for Updates" Height="28" Padding="12,0" FontSize="10.5" FontWeight="SemiBold" Cursor="Hand" ToolTip="Check GitHub repository for the latest release" Margin="0,0,8,0" />
-                  <Button Name="BtnAppUpdateTab" Style="{StaticResource b2}" Background="#c15f3c" Foreground="#FFFFFF" Content="Install Update" Height="28" Padding="14,0" FontSize="10.5" FontWeight="Bold" Cursor="Hand" Visibility="Collapsed" />
+                <StackPanel Orientation="Horizontal" DockPanel.Dock="Right" VerticalAlignment="Center">
+                  <Button Name="BtnManualCheckUpdates" Style="{StaticResource b2}" Background="#16161A" Foreground="#D4D4D8" Content="Check for Updates" Height="24" Padding="10,0" FontSize="10" FontWeight="SemiBold" Cursor="Hand" Margin="0,0,6,0" />
+                  <Button Name="BtnAppUpdateTab" Style="{StaticResource b2}" Background="#c15f3c" Foreground="#FFFFFF" Content="Install Update" Height="24" Padding="12,0" FontSize="10" FontWeight="Bold" Cursor="Hand" Visibility="Collapsed" />
                 </StackPanel>
-              </Grid>
+              </DockPanel>
             </Border>
 
             <!-- What This App Does (Features & Architecture Grid) -->
@@ -4057,7 +4038,7 @@ function Check-ZeroExplorerUpdateAsync([bool]$isManual = $false) {
             $BtnManualCheckUpdates.Content = "[...] Checking..."
         }
         if ($TxtAppUpdateStatus) {
-            $TxtAppUpdateStatus.Text = "Checking for new releases on GitHub..."
+            $TxtAppUpdateStatus.Text = "Checking for updates..."
             $TxtAppUpdateStatus.Foreground = [System.Windows.Media.BrushConverter]::new().ConvertFromString("#D4D4D8")
         }
     }
@@ -4070,7 +4051,7 @@ function Check-ZeroExplorerUpdateAsync([bool]$isManual = $false) {
     if (-not $isOnline) {
         if ($Script:IsManualUpdateCheck) {
             if ($TxtAppUpdateStatus) {
-                $TxtAppUpdateStatus.Text = "Offline Mode (No Internet Connection)"
+                $TxtAppUpdateStatus.Text = "Offline (v$($Script:CurrentAppVersion))"
                 $TxtAppUpdateStatus.Foreground = [System.Windows.Media.BrushConverter]::new().ConvertFromString("#94A3B8")
             }
             if ($BtnManualCheckUpdates) {
@@ -4101,11 +4082,11 @@ function Check-ZeroExplorerUpdateAsync([bool]$isManual = $false) {
                     $hasErr = $e.Error -or [string]::IsNullOrWhiteSpace($e.Result)
                     if ($hasErr) {
                         if ($TxtAppUpdateStatus) {
-                            $TxtAppUpdateStatus.Text = "You are using the latest version (v$($Script:CurrentAppVersion))"
+                            $TxtAppUpdateStatus.Text = "Up to date (v$($Script:CurrentAppVersion))"
                             $TxtAppUpdateStatus.Foreground = [System.Windows.Media.BrushConverter]::new().ConvertFromString("#4ADE80")
                         }
                         if ($BtnManualCheckUpdates) {
-                            $BtnManualCheckUpdates.Content = "[OK] Latest Version"
+                            $BtnManualCheckUpdates.Content = "Check for Updates"
                         }
                         Set-SidebarUpdateButtonVisuals "UP_TO_DATE"
                         return
@@ -4128,28 +4109,28 @@ function Check-ZeroExplorerUpdateAsync([bool]$isManual = $false) {
                             Set-SidebarUpdateButtonVisuals "UPDATE_AVAILABLE" "v$cleanTag"
 
                             if ($TxtAppUpdateStatus) {
-                                $TxtAppUpdateStatus.Text = "New release available on GitHub: v$cleanTag"
+                                $TxtAppUpdateStatus.Text = "Update v$cleanTag available"
                                 $TxtAppUpdateStatus.Foreground = [System.Windows.Media.BrushConverter]::new().ConvertFromString("#c15f3c")
                             }
                             if ($BtnAppUpdateTab) {
                                 $BtnAppUpdateTab.Visibility = [System.Windows.Visibility]::Visible
-                                $BtnAppUpdateTab.Content = "[>>] Install v$cleanTag"
+                                $BtnAppUpdateTab.Content = "Install v$cleanTag"
                             }
                             if ($BtnManualCheckUpdates) {
-                                $BtnManualCheckUpdates.Content = "Re-check GitHub"
+                                $BtnManualCheckUpdates.Content = "Re-check"
                             }
                         } else {
                             $Script:HasAvailableUpdate = $false
                             Set-SidebarUpdateButtonVisuals "UP_TO_DATE"
                             if ($TxtAppUpdateStatus) {
-                                $TxtAppUpdateStatus.Text = "You are using the latest version (v$($Script:CurrentAppVersion))"
+                                $TxtAppUpdateStatus.Text = "Up to date (v$($Script:CurrentAppVersion))"
                                 $TxtAppUpdateStatus.Foreground = [System.Windows.Media.BrushConverter]::new().ConvertFromString("#4ADE80")
                             }
                             if ($BtnAppUpdateTab) {
                                 $BtnAppUpdateTab.Visibility = [System.Windows.Visibility]::Collapsed
                             }
                             if ($BtnManualCheckUpdates) {
-                                $BtnManualCheckUpdates.Content = "[OK] Latest Version"
+                                $BtnManualCheckUpdates.Content = "Check for Updates"
                             }
                         }
                     } else {
