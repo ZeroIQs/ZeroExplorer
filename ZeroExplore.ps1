@@ -1298,7 +1298,7 @@ $Script:AssetsDir = if (Test-Path (Join-Path $Script:AppDir "assets")) {
 }
 
 # Global State
-$Script:CurrentAppVersion       = "1.0.2"
+$Script:CurrentAppVersion       = "1.0.3"
 $Script:GitHubRepo              = "ZeroIQs/ZeroExplorer"
 $Script:RunningScriptPath       = if ($PSCommandPath) { $PSCommandPath } elseif ($PSScriptRoot) { Join-Path $PSScriptRoot "ZeroExplore.ps1" } else { (Join-Path (Get-Location).Path "ZeroExplore.ps1") }
 $Script:HasAvailableUpdate      = $false
