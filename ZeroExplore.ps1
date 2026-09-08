@@ -275,6 +275,40 @@ namespace ZeroExplore {
         private static SynchronizationContext _uiContext;
         public static Action OnFolderSizesCompleted;
 
+        public static void CheckForUpdateAsync(string repo, System.Windows.Threading.Dispatcher dispatcher, Action<string> onCompleted) {
+            ThreadPool.QueueUserWorkItem(_ => {
+                string tag = null;
+                try {
+                    System.Net.ServicePointManager.SecurityProtocol = System.Net.SecurityProtocolType.Tls12 | System.Net.SecurityProtocolType.Tls11 | System.Net.SecurityProtocolType.Tls;
+                    long ts = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+                    using (var wc = new System.Net.WebClient()) {
+                        wc.Headers.Add("User-Agent", "ZeroExplorer-UpdateChecker");
+                        wc.Headers.Add("Cache-Control", "no-cache, no-store, must-revalidate");
+                        try {
+                            string json = wc.DownloadString("https://raw.githubusercontent.com/" + repo + "/main/version.json?nocache=" + ts);
+                            var m = Regex.Match(json, "\"version\"\\s*:\\s*\"([^\"]+)\"");
+                            if (m.Success) tag = m.Groups[1].Value.Trim().TrimStart('v', 'V');
+                        } catch {}
+                        if (string.IsNullOrEmpty(tag)) {
+                            try {
+                                string ps1 = wc.DownloadString("https://raw.githubusercontent.com/" + repo + "/main/ZeroExplore.ps1?nocache=" + ts);
+                                var m = Regex.Match(ps1, "\\$Script:CurrentAppVersion\\s*=\\s*[\"']([^\"']+)[\"']");
+                                if (m.Success) tag = m.Groups[1].Value.Trim().TrimStart('v', 'V');
+                            } catch {}
+                        }
+                    }
+                } catch {}
+
+                if (dispatcher != null && onCompleted != null) {
+                    dispatcher.BeginInvoke(new Action(() => {
+                        try {
+                            onCompleted(tag);
+                        } catch {}
+                    }));
+                }
+            });
+        }
+
         public static List<FileItem> SortItems(IEnumerable<FileItem> items, string sortBy, bool ascending) {
             if (items == null) return new List<FileItem>();
             var list = items as List<FileItem> ?? new List<FileItem>(items);
@@ -4064,10 +4098,10 @@ function Check-ZeroExplorerUpdateAsync([bool]$isManual = $false) {
         return
     }
 
-    # Dispatcher fallback timer: guarantees "Checking..." never hangs longer than 3.5s
+    # Dispatcher fallback timer: guarantees checking state never hangs beyond 4s
     if ($Script:UpdateResetTimer) { try { $Script:UpdateResetTimer.Stop() } catch {} }
     $Script:UpdateResetTimer = New-Object System.Windows.Threading.DispatcherTimer
-    $Script:UpdateResetTimer.Interval = [TimeSpan]::FromSeconds(3.5)
+    $Script:UpdateResetTimer.Interval = [TimeSpan]::FromSeconds(4)
     $Script:UpdateResetTimer.Add_Tick({
         $Script:UpdateResetTimer.Stop()
         if (-not $Script:HasAvailableUpdate) {
@@ -4089,127 +4123,71 @@ function Check-ZeroExplorerUpdateAsync([bool]$isManual = $false) {
     $Script:UpdateResetTimer.Start()
 
     try {
-        $sync = [hashtable]::Synchronized(@{
-            Window        = $Window
-            Repo          = $Script:GitHubRepo
-            CurrentVer    = $Script:CurrentAppVersion
-            IsManual      = $isManual
-        })
+        [ZeroExplore.FileExplorerEngine]::CheckForUpdateAsync($Script:GitHubRepo, $Window.Dispatcher, [Action[string]]{
+            param($cleanTag)
+            if ($Script:UpdateResetTimer) { try { $Script:UpdateResetTimer.Stop() } catch {} }
 
-        $ps = [powershell]::Create()
-        $ps.AddScript({
-            param($s)
-            try {
-                [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.SecurityProtocolType]::Tls12 -bor [System.Net.SecurityProtocolType]::Tls11 -bor [System.Net.SecurityProtocolType]::Tls
-                $ts = [DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds()
-                $wc = New-Object System.Net.WebClient
-                $wc.Headers.Add("User-Agent", "ZeroExplorer-UpdateChecker")
-                $wc.Headers.Add("Cache-Control", "no-cache, no-store, must-revalidate")
+            if (-not [string]::IsNullOrWhiteSpace($cleanTag)) {
+                $curVer = [System.Version]::Parse($Script:CurrentAppVersion)
+                $latVer = [System.Version]::Parse($cleanTag)
 
-                $cleanTag = $null
-                # 1. Fast check: version.json
-                try {
-                    $jsonUrl = "https://raw.githubusercontent.com/$($s.Repo)/main/version.json?nocache=$ts"
-                    $rawJson = $wc.DownloadString($jsonUrl)
-                    if ($rawJson -match '"version"\s*:\s*"([^"]+)"') {
-                        $cleanTag = $Matches[1].Trim().TrimStart('v', 'V')
+                if ($latVer -gt $curVer) {
+                    $Script:HasAvailableUpdate = $true
+                    $Script:LatestUpdateTag    = $cleanTag
+
+                    Set-SidebarUpdateButtonVisuals "UPDATE_AVAILABLE" "v$cleanTag"
+
+                    if ($TxtAppUpdateStatus) {
+                        $TxtAppUpdateStatus.Text = "Update v$cleanTag available"
+                        $TxtAppUpdateStatus.Foreground = [System.Windows.Media.BrushConverter]::new().ConvertFromString("#c15f3c")
                     }
-                } catch {}
+                    if ($BtnAppUpdateTab) {
+                        $BtnAppUpdateTab.Visibility = [System.Windows.Visibility]::Visible
+                        $BtnAppUpdateTab.Content = "Install v$cleanTag"
+                    }
+                    if ($BtnManualCheckUpdates) {
+                        $BtnManualCheckUpdates.Content = "Re-check"
+                        $BtnManualCheckUpdates.IsEnabled = $true
+                    }
+                    return
+                }
+            }
 
-                # 2. Fallback check: ZeroExplore.ps1
-                if (-not $cleanTag) {
-                    try {
-                        $rawUrl = "https://raw.githubusercontent.com/$($s.Repo)/main/ZeroExplore.ps1?nocache=$ts"
-                        $rawPs1 = $wc.DownloadString($rawUrl)
-                        if ($rawPs1 -match '\$Script:CurrentAppVersion\s*=\s*["'']([^"'']+)["'']') {
-                            $cleanTag = $Matches[1].Trim().TrimStart('v', 'V')
-                        }
-                    } catch {}
+            # Up to date
+            $Script:HasAvailableUpdate = $false
+            if ($Script:IsManualUpdateCheck) {
+                Set-SidebarUpdateButtonVisuals "UP_TO_DATE"
+                if ($TxtAppUpdateStatus) {
+                    $TxtAppUpdateStatus.Text = "Up to date (v$($Script:CurrentAppVersion))"
+                    $TxtAppUpdateStatus.Foreground = [System.Windows.Media.BrushConverter]::new().ConvertFromString("#4ADE80")
+                }
+                if ($BtnManualCheckUpdates) {
+                    $BtnManualCheckUpdates.Content = "Check for Updates"
+                    $BtnManualCheckUpdates.IsEnabled = $true
                 }
 
-                $s.Window.Dispatcher.Invoke([System.Action]{
-                    try {
-                        if ($Script:UpdateResetTimer) { $Script:UpdateResetTimer.Stop() }
-                        if (-not [string]::IsNullOrWhiteSpace($cleanTag)) {
-                            $curVer = [System.Version]::Parse($s.CurrentVer)
-                            $latVer = [System.Version]::Parse($cleanTag)
-
-                            if ($latVer -gt $curVer) {
-                                $Script:HasAvailableUpdate = $true
-                                $Script:LatestUpdateTag    = $cleanTag
-
-                                Set-SidebarUpdateButtonVisuals "UPDATE_AVAILABLE" "v$cleanTag"
-
-                                if ($TxtAppUpdateStatus) {
-                                    $TxtAppUpdateStatus.Text = "Update v$cleanTag available"
-                                    $TxtAppUpdateStatus.Foreground = [System.Windows.Media.BrushConverter]::new().ConvertFromString("#c15f3c")
-                                }
-                                if ($BtnAppUpdateTab) {
-                                    $BtnAppUpdateTab.Visibility = [System.Windows.Visibility]::Visible
-                                    $BtnAppUpdateTab.Content = "Install v$cleanTag"
-                                }
-                                if ($BtnManualCheckUpdates) {
-                                    $BtnManualCheckUpdates.Content = "Re-check"
-                                    $BtnManualCheckUpdates.IsEnabled = $true
-                                }
-                                return
-                            }
-                        }
-
-                        # No update available
-                        $Script:HasAvailableUpdate = $false
-                        if ($s.IsManual) {
-                            Set-SidebarUpdateButtonVisuals "UP_TO_DATE"
-                            if ($TxtAppUpdateStatus) {
-                                $TxtAppUpdateStatus.Text = "Up to date (v$($s.CurrentVer))"
-                                $TxtAppUpdateStatus.Foreground = [System.Windows.Media.BrushConverter]::new().ConvertFromString("#4ADE80")
-                            }
-                            if ($BtnManualCheckUpdates) {
-                                $BtnManualCheckUpdates.Content = "Check for Updates"
-                                $BtnManualCheckUpdates.IsEnabled = $true
-                            }
-
-                            if ($Script:UpdateResetTimer) { try { $Script:UpdateResetTimer.Stop() } catch {} }
-                            $Script:UpdateResetTimer = New-Object System.Windows.Threading.DispatcherTimer
-                            $Script:UpdateResetTimer.Interval = [TimeSpan]::FromSeconds(3)
-                            $Script:UpdateResetTimer.Add_Tick({
-                                $Script:UpdateResetTimer.Stop()
-                                if (-not $Script:HasAvailableUpdate) {
-                                    Set-SidebarUpdateButtonVisuals "NORMAL"
-                                }
-                            })
-                            $Script:UpdateResetTimer.Start()
-                        } else {
-                            Set-SidebarUpdateButtonVisuals "NORMAL"
-                            if ($TxtAppUpdateStatus) {
-                                $TxtAppUpdateStatus.Text = "Up to date (v$($s.CurrentVer))"
-                                $TxtAppUpdateStatus.Foreground = [System.Windows.Media.BrushConverter]::new().ConvertFromString("#4ADE80")
-                            }
-                            if ($BtnManualCheckUpdates) {
-                                $BtnManualCheckUpdates.Content = "Check for Updates"
-                                $BtnManualCheckUpdates.IsEnabled = $true
-                            }
-                        }
-                    } catch {
+                if ($Script:UpdateResetTimer) { try { $Script:UpdateResetTimer.Stop() } catch {} }
+                $Script:UpdateResetTimer = New-Object System.Windows.Threading.DispatcherTimer
+                $Script:UpdateResetTimer.Interval = [TimeSpan]::FromSeconds(3)
+                $Script:UpdateResetTimer.Add_Tick({
+                    $Script:UpdateResetTimer.Stop()
+                    if (-not $Script:HasAvailableUpdate) {
                         Set-SidebarUpdateButtonVisuals "NORMAL"
-                        if ($BtnManualCheckUpdates) {
-                            $BtnManualCheckUpdates.IsEnabled = $true
-                            $BtnManualCheckUpdates.Content = "Check for Updates"
-                        }
                     }
                 })
-            } catch {
-                $s.Window.Dispatcher.Invoke([System.Action]{
-                    Set-SidebarUpdateButtonVisuals "NORMAL"
-                    if ($BtnManualCheckUpdates) {
-                        $BtnManualCheckUpdates.IsEnabled = $true
-                        $BtnManualCheckUpdates.Content = "Check for Updates"
-                    }
-                })
+                $Script:UpdateResetTimer.Start()
+            } else {
+                Set-SidebarUpdateButtonVisuals "NORMAL"
+                if ($TxtAppUpdateStatus) {
+                    $TxtAppUpdateStatus.Text = "Up to date (v$($Script:CurrentAppVersion))"
+                    $TxtAppUpdateStatus.Foreground = [System.Windows.Media.BrushConverter]::new().ConvertFromString("#4ADE80")
+                }
+                if ($BtnManualCheckUpdates) {
+                    $BtnManualCheckUpdates.Content = "Check for Updates"
+                    $BtnManualCheckUpdates.IsEnabled = $true
+                }
             }
-        }).AddArgument($sync) | Out-Null
-
-        $ps.BeginInvoke() | Out-Null
+        })
     } catch {
         Set-SidebarUpdateButtonVisuals "NORMAL"
         if ($BtnManualCheckUpdates) {
