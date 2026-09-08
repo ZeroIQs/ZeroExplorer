@@ -1298,7 +1298,7 @@ $Script:AssetsDir = if (Test-Path (Join-Path $Script:AppDir "assets")) {
 }
 
 # Global State
-$Script:CurrentAppVersion       = "1.0.0"
+$Script:CurrentAppVersion       = "1.0.1"
 $Script:GitHubRepo              = "ZeroIQs/ZeroExplorer"
 $Script:RunningScriptPath       = if ($PSCommandPath) { $PSCommandPath } elseif ($PSScriptRoot) { Join-Path $PSScriptRoot "ZeroExplore.ps1" } else { (Join-Path (Get-Location).Path "ZeroExplore.ps1") }
 $Script:HasAvailableUpdate      = $false
@@ -3289,7 +3289,7 @@ function Open-SafeBrowserUrl([string]$url) {
                     <TextBlock Text="Explore" FontSize="22" FontWeight="Bold" Foreground="#F5EDE0" Margin="0,0,12,0" />
                     <!-- Version Badge -->
                     <Border Background="#18181C" BorderBrush="#23232A" BorderThickness="1" CornerRadius="5" Padding="8,2" Margin="0,0,6,0">
-                      <TextBlock Text="v1.0.0" FontSize="10" FontWeight="Bold" Foreground="#F5EDE0" VerticalAlignment="Center" />
+                      <TextBlock Text="v1.0.1" FontSize="10" FontWeight="Bold" Foreground="#F5EDE0" VerticalAlignment="Center" />
                     </Border>
                     <!-- GPLv3 Badge -->
                     <Border Background="#18181C" BorderBrush="#23232A" BorderThickness="1" CornerRadius="5" Padding="8,2" Margin="0,0,6,0">
@@ -3316,7 +3316,7 @@ function Open-SafeBrowserUrl([string]$url) {
               <DockPanel LastChildFill="False">
                 <StackPanel Orientation="Horizontal" DockPanel.Dock="Left" VerticalAlignment="Center">
                   <TextBlock Text="&#xE72C;" FontFamily="Segoe MDL2 Assets" FontSize="11" Foreground="#c15f3c" Margin="0,0,7,0" VerticalAlignment="Center" />
-                  <TextBlock Name="TxtAppUpdateStatus" Text="Up to date (v1.0.0)" FontSize="11" FontWeight="SemiBold" Foreground="#4ADE80" VerticalAlignment="Center" />
+                  <TextBlock Name="TxtAppUpdateStatus" Text="Up to date (v1.0.1)" FontSize="11" FontWeight="SemiBold" Foreground="#4ADE80" VerticalAlignment="Center" />
                 </StackPanel>
                 <StackPanel Orientation="Horizontal" DockPanel.Dock="Right" VerticalAlignment="Center">
                   <Button Name="BtnManualCheckUpdates" Style="{StaticResource b2}" Background="#16161A" Foreground="#D4D4D8" Content="Check for Updates" Height="24" Padding="10,0" FontSize="10" FontWeight="SemiBold" Cursor="Hand" Margin="0,0,6,0" />
